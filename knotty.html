@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<style>
+			body {
+				background-color: #fff5f5;
+				margin: 0;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="js_fun/three.min.js"></script>
+		<script src="js_fun/orbitControls.js"></script>
+		<script src="js_fun/MIDI.js"></script>
+		<script>
+
+			var midi, data;
+			// request MIDI access
+			if (navigator.requestMIDIAccess) {
+			    navigator.requestMIDIAccess({
+			        sysex: false
+			    }).then(onMIDISuccess);
+			} else {
+			    alert("No MIDI support in your browser.");
+			}
+
+			function onMIDISuccess(midiAccess) {
+			    midi = midiAccess
+
+			    var inputs = midi.inputs.values()
+			    for (var input = inputs.next(); input && !input.done; input = inputs.next()) {
+			        input.value.onmidimessage = onMIDIMessage;
+			    }
+			}
+
+			function onMIDIMessage(message) {
+			    data = message.data; // this gives us our [command/channel, note, velocity] data.
+					cmd = data[0] >> 4
+					channel = data[0] & 0xf
+					type = data[0] & 0xf0
+					note = data[1]
+					velocity = data[2]
+
+					switch(type) {
+						case 144:
+							noteOn(note, velocity)
+							break
+						case 128:
+							noteOff(note, velocity)
+							break
+					}
+
+			}
+
+			function frequencyFromNote(note) {
+				return 440 * Math.pow(2, (note - 69)/12)
+			}
+
+
+			var currNote = null
+			function noteOn(note, velocity) {
+				//do shit with note number
+				// if (note == 1) {
+				// 	radius = 100
+				// } else if (note == 2) {
+				// 	radius = 50
+				// }
+
+				currNote = note
+			}
+
+			function noteOff(note, velocity) {
+				//do shit with note number
+			}
+
+
+			var camera, scene, renderer, controls
+			var geometry, material, mesh
+
+			function setup() {
+
+				var W = window.innerWidth, H = window.innerHeight
+				renderer = new THREE.WebGLRenderer( { preserveDrawingBuffer: false } )
+				renderer.autoClearColor = false
+				renderer.setSize( W, H )
+				document.body.appendChild(renderer.domElement)
+
+				camera = new THREE.PerspectiveCamera( 50, W/H, 1, 10000 )
+				camera.position.x = 500
+				camera.position.y = 300
+				camera.position.z = 3000
+
+				controls = new THREE.OrbitControls(camera);
+				controls.addEventListener('change', renderer);
+
+				scene = new THREE.Scene()
+
+				group = new THREE.Object3D();//create an empty container
+
+				primeVals = [1, 2, 5, 7, 11, 13, 17, 19]
+
+				for (var i = 0; i < 500; i++) {
+
+					knotQ = primeVals[Math.floor(Math.random() * 7) + 0]
+					knotP = primeVals[Math.floor(Math.random() * 7) + 0]
+
+					radius = Math.floor(Math.random() * 200) + 160
+
+					geometry = new THREE.TorusKnotGeometry(radius, 44.14, 40, 8, knotP, knotQ, 1)
+					material = new THREE.MeshNormalMaterial({shading: THREE.FlatShading, transparent: true, opacity: 0.62}) //0.42
+
+					mesh = makeMeshes(geometry, material)
+
+					group.add(mesh)
+				}
+
+				scene.add(group)
+
+				bg = document.body.style
+				bg.background = '#fff5f5'
+
+
+			}
+
+			function makeMeshes(geometry, material) {
+				mesh = new THREE.Mesh(geometry, material)
+				mesh.scale.x = mesh.scale.y = mesh.scale.z = 0.10
+				mesh.position.x = Math.random() * 2500 - 500
+				mesh.position.y = Math.random() * 2500 - 500
+				mesh.position.z = Math.random() * 2500 - 500
+				mesh.rotation.x = Math.random() * 2 * Math.PI
+				mesh.rotation.y = Math.random() * 2 * Math.PI
+				mesh.rotation.z = Math.random() * 2 * Math.PI
+				return mesh
+			}
+
+			function draw() {
+
+				for (var i = 0; i < 500; i++) {
+
+					if (currNote == 0) {
+						group.children[i].scale.x = group.children[i].scale.x + 0.004
+					} else if (currNote == 1) {
+						group.children[i].scale.x = group.children[i].scale.x - 0.004
+					} else if (currNote == 2) {
+						group.children[i].position.x = group.children[i].position.x + 4
+					} else if (currNote == 3) {
+						group.children[i].position.x = group.children[i].position.x - 4
+					} else if (currNote == 4) {
+						group.children[i].position.y = group.children[i].position.y + 4
+					} else if (currNote == 5) {
+						group.children[i].position.y = group.children[i].position.y - 4
+					} else if (currNote == 6) {
+						group.children[i].position.z = group.children[i].position.z + 4
+					} else if (currNote == 7) {
+						group.children[i].position.z = group.children[i].position.z - 4
+					} else if (currNote == 16) {
+						group.children[i].material.opacity = group.children[i].material.opacity + 0.01
+					} else if (currNote == 17) {
+						group.children[i].material.opacity = group.children[i].material.opacity - 0.01
+					} else if (currNote == 18) {
+						// renderer.preserveDrawingBuffer = true
+						// renderer.autoClearColor = true
+						// console.log(renderer)
+						camera.position.z = Math.sin( Date.now() * 0.002 ) * 500;
+						camera.position.y = Math.sin( Date.now() * 0.002 ) * 300;
+						camera.lookAt(mesh.position);
+					}
+
+				}
+
+
+
+				requestAnimationFrame(draw)
+
+				renderer.render(scene, camera) //,camera
+
+
+			}
+
+			function animate() {
+				controls.update()
+
+
+
+			}
+
+			setup()
+			draw()
+			animate()
+
+		</script>
+
+	</body>
+</html>
