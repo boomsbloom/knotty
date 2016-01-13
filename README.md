@@ -4,4 +4,6 @@ Uses three.js to generate a field of random torus knots specified by a pair of c
 
 Click to rotate or use a MIDI controller (via MIDI.js) to explore the space and vary different traits.
 
+Knot traits also vary by audio.
+
 Check it out: http://boomsbloom.github.io/knotty/ (W.I.P.)
