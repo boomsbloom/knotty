@@ -16,15 +16,73 @@
 		<script src="js_fun/orbitControls.js"></script>
 		<script src="js_fun/MIDI.js"></script>
 		<script>
+//AUDIO STUFF
 
+			var context
+			var timeByteData
+
+			if (typeof AudioContext != 'undefined') {
+				context = new AudioContext()
+			} else if (typeof webkitAudioContext != 'undefined') {
+				context = new webkitAudioContext()
+			} else {
+				throw new Error('No AudioContext support in your browser.')
+			}
+
+			var analyser = context.createAnalyser()
+			analyser.smoothingTimeConstant = 0.8
+			analyser.fftSize = 2048
+			var binCount = analyser.frequencyBinCount
+			var timeByteData = new Uint8Array(binCount)
+
+			var request = new XMLHttpRequest()
+			request.open('GET', 'chinchou-melonlantern.mp3', true)
+			request.responseType = 'arraybuffer'
+
+			//asynchronous callback
+			request.onload = function() {
+				var audioData = request.response
+				createSoundSource(audioData)
+			}
+			request.send()
+
+			function createSoundSource(audioData) {
+				//create source buffer from raw binary data
+				soundSource = context.createBufferSource()
+				context.decodeAudioData(audioData, function(soundBuffer){
+					soundSource.buffer = soundBuffer
+				})
+
+				volumeNode = context.createGain()
+				volumeNode.gain.value = 0.1
+
+				soundSource.connect(volumeNode)
+				soundSource.connect(context.destination)
+				soundSource.connect(analyser)
+
+				//playSound(soundSource)
+
+			}
+
+
+			function playSound(soundSource) {
+				soundSource.start(context.currentTime)
+			}
+
+			function stopSound(soundSource) {
+				soundSource.stop(context.currentTime)
+			}
+
+
+//MIDI STUFF
 			var midi, data;
 			// request MIDI access
 			if (navigator.requestMIDIAccess) {
 			    navigator.requestMIDIAccess({
 			        sysex: false
-			    }).then(onMIDISuccess);
+			    }).then(onMIDISuccess)
 			} else {
-			    alert("No MIDI support in your browser.");
+			    throw new Error("No MIDI support in your browser.")
 			}
 
 			function onMIDISuccess(midiAccess) {
@@ -102,7 +160,7 @@
 
 				primeVals = [1, 2, 5, 7, 11, 13, 17, 19]
 
-				for (var i = 0; i < 500; i++) {
+				for (var i = 0; i < 1024; i++) {
 
 					knotQ = primeVals[Math.floor(Math.random() * 7) + 0]
 					knotP = primeVals[Math.floor(Math.random() * 7) + 0]
@@ -110,10 +168,10 @@
 					radius = Math.floor(Math.random() * 200) + 160
 
 					geometry = new THREE.TorusKnotGeometry(radius, 44.14, 40, 8, knotP, knotQ, 1)
-					material = new THREE.MeshNormalMaterial({shading: THREE.FlatShading, transparent: true, opacity: 0.62}) //0.42
+					material = new THREE.MeshNormalMaterial({shading: THREE.FlatShading, transparent: true, opacity: 0.99}) //0.42
+					//opacity: 0.62
 
-					mesh = makeMeshes(geometry, material)
-
+					mesh = makeMeshes(geometry, material, i)
 					group.add(mesh)
 				}
 
@@ -125,21 +183,34 @@
 
 			}
 
-			function makeMeshes(geometry, material) {
+			function makeMeshes(geometry, material, iteration) {
 				mesh = new THREE.Mesh(geometry, material)
 				mesh.scale.x = mesh.scale.y = mesh.scale.z = 0.10
-				mesh.position.x = Math.random() * 2500 - 500
-				mesh.position.y = Math.random() * 2500 - 500
-				mesh.position.z = Math.random() * 2500 - 500
+				mesh.position.x = iteration //* 2500 - 500//Math.random() * 2500 - 500
+				mesh.position.y = Math.random() * 4500 - 500
+				mesh.position.z = Math.random() * 4500 - 500
 				mesh.rotation.x = Math.random() * 2 * Math.PI
 				mesh.rotation.y = Math.random() * 2 * Math.PI
 				mesh.rotation.z = Math.random() * 2 * Math.PI
 				return mesh
 			}
 
+			drawIts = 0
 			function draw() {
+				drawIts++
 
-				for (var i = 0; i < 500; i++) {
+				analyser.getByteTimeDomainData(timeByteData)
+
+				for (var i = 0; i < 1024; i++) {
+
+					//console.log(timeByteData[i])
+
+					if (drawIts % 5 == 0) {
+						group.children[i].scale.x = timeByteData[i]/1000
+						group.children[i].scale.y = timeByteData[i]/1000
+						//group.children[i].geometry.p = 1//timeByteData[i]/1000
+						//group.children[i].geometry.q = 1//timeByteData[i]/1000
+					}
 
 					if (currNote == 0) {
 						group.children[i].scale.x = group.children[i].scale.x + 0.004
@@ -171,8 +242,6 @@
 					}
 
 				}
-
-
 
 				requestAnimationFrame(draw)
 
